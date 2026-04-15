@@ -11,6 +11,12 @@ export default defineConfig(() => {
           secure: false,
           changeOrigin: true,
         },
+        "/api": {
+          target: "http://localhost:8001",
+          secure: false,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ""),
+        },
       },
     },
     build: {
@@ -44,8 +50,8 @@ export default defineConfig(() => {
         registerType: "autoUpdate",
         includeAssets: ["favicon.ico", "lang/*.json"],
         manifest: {
-          short_name: "Chat with GPT",
-          name: "Chat with GPT",
+          short_name: "Fery",
+          name: "Fery — Ferry AI Assistant",
           start_url: ".",
           display: "standalone",
           theme_color: "#000000",
