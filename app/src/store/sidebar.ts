@@ -2,7 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { RootState } from '.';
 
 const initialState = {
-    open: false,
+    open: window.innerWidth >= 640,
 };
 
 export const uiSlice = createSlice({
