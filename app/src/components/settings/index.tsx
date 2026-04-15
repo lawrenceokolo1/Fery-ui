@@ -1,12 +1,8 @@
 import styled from '@emotion/styled';
 import { Button, Drawer, Tabs } from "@mantine/core";
-import { useMediaQuery } from '@mantine/hooks';
 import { useCallback, useEffect } from 'react';
-import UserOptionsTab from './user';
-import ChatOptionsTab from './chat';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { closeSettingsUI, selectSettingsOption, selectSettingsTab, setTab } from '../../store/settings-ui';
-import SpeechOptionsTab from './speech';
+import { closeSettingsUI, selectSettingsOption, selectSettingsTab, setTabAndOption } from '../../store/settings-ui';
 import { FormattedMessage } from 'react-intl';
 import UIPreferencesTab from './ui-preferences';
 
@@ -78,17 +74,19 @@ export interface SettingsDrawerProps {
 export default function SettingsDrawer(props: SettingsDrawerProps) {
     const tab = useAppSelector(selectSettingsTab);
     const option = useAppSelector(selectSettingsOption);
-    const small = useMediaQuery('(max-width: 40em)');
-
     const dispatch = useAppDispatch();
     const close = useCallback(() => dispatch(closeSettingsUI()), [dispatch]);
-    const onTabChange = useCallback((tab: string) => dispatch(setTab(tab)), [dispatch]);
-
     useEffect(() => {
         setTimeout(() => {
             document.querySelector('.focused')?.scrollIntoView();
         }, 1000);
     }, [tab, option]);
+
+    useEffect(() => {
+        if (tab && tab !== 'ui') {
+            dispatch(setTabAndOption({ tab: 'ui', option: '' }));
+        }
+    }, [tab, dispatch]);
 
     return (
         <Drawer size="50rem"
@@ -99,17 +97,11 @@ export default function SettingsDrawer(props: SettingsDrawerProps) {
             transitionDuration={200}
             withCloseButton={false}>
             <Container>
-                <Tabs value={tab} onTabChange={onTabChange} style={{ margin: '0rem' }}>
-                    <Tabs.List grow={small}>
-                        <Tabs.Tab value="chat">Chat</Tabs.Tab>
-                        <Tabs.Tab value="speech">Speech</Tabs.Tab>
+                <Tabs value="ui" style={{ margin: '0rem' }}>
+                    <Tabs.List style={{ display: 'none' }}>
                         <Tabs.Tab value="ui">UI</Tabs.Tab>
-                        <Tabs.Tab value="user">User</Tabs.Tab>
                     </Tabs.List>
-                    <ChatOptionsTab />
-                    <SpeechOptionsTab />
                     <UIPreferencesTab />
-                    <UserOptionsTab />
                 </Tabs>
                 <div id="save">
                     <Button variant="light" fullWidth size="md" onClick={close}>

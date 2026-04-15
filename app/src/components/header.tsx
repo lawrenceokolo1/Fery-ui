@@ -11,8 +11,8 @@ import { MenuItem, secondaryMenu } from '../menus';
 import { useAppDispatch, useAppSelector } from '../store';
 import { setTab } from '../store/settings-ui';
 import { selectSidebarOpen, toggleSidebar } from '../store/sidebar';
-import { openLoginModal, openSignupModal } from '../store/ui';
-import { useOption } from '../core/options/use-option';
+import { openLoginModal } from '../store/ui';
+// import { openSignupModal } from '../store/ui'; // re-enable with header “Sign in to sync” button below
 import { useHotkeys } from '@mantine/hooks';
 
 const Banner = styled.div`
@@ -30,13 +30,15 @@ const HeaderContainer = styled.div`
     flex-shrink: 0;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    min-height: 2.618rem;
-    background: rgba(0, 0, 0, 0.0);
+    padding: 0.65rem 0.9rem;
+    min-height: 3rem;
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     font-family: "Work Sans", sans-serif;
 
     &.shaded {
-        background: rgba(0, 0, 0, 0.2);
+        background: transparent;
+        border-bottom-color: transparent;
     }
 
     h1 {
@@ -70,8 +72,10 @@ const HeaderContainer = styled.div`
     }
 
     h2 {
-        margin: 0 0.5rem;
-        font-size: 1rem;
+        margin: 0 0.35rem;
+        font-size: 0.95rem;
+        letter-spacing: 0.01em;
+        color: rgba(250, 250, 255, 0.85);
         white-space: nowrap;
     }
 
@@ -94,6 +98,31 @@ const HeaderContainer = styled.div`
     .mantine-Button-root {
         @media (max-width: 40em) {
             padding: 0.5rem;
+        }
+    }
+
+    &.chat-toolbar {
+        .fery-header-action.mantine-Button-root {
+            color: rgba(228, 230, 240, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            font-weight: 500;
+            font-family: "Work Sans", sans-serif;
+
+            &:hover:not(:disabled) {
+                color: rgba(248, 248, 252, 0.96);
+                background: rgba(255, 255, 255, 0.08);
+                border-color: rgba(255, 255, 255, 0.16);
+            }
+
+            &:disabled {
+                opacity: 0.55;
+            }
+        }
+
+        .fery-header-action--emphasis.mantine-Button-root {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.14);
         }
     }
 `;
@@ -121,17 +150,15 @@ const SubHeaderContainer = styled.div`
     }
 `;
 
-function HeaderButton(props: ButtonProps & { icon?: string, onClick?: any, children?: any }) {
+function HeaderButton(props: ButtonProps & { icon?: string; emphasis?: boolean }) {
+    const { icon, children, emphasis, className, variant = 'subtle', ...rest } = props;
+    const cls = ['fery-header-action', emphasis ? 'fery-header-action--emphasis' : '', className || ''].filter(Boolean).join(' ');
     return (
-        <Button size='xs'
-            variant={props.variant || 'subtle'}
-            onClick={props.onClick}>
-            {props.icon && <i className={'fa fa-' + props.icon} />}
-            {props.children && <span>
-                {props.children}
-            </span>}
+        <Button size="xs" variant={variant} className={cls} {...rest}>
+            {icon && <i className={'fa fa-' + icon} />}
+            {children && <span>{children}</span>}
         </Button>
-    )
+    );
 }
 
 export interface HeaderProps {
@@ -146,7 +173,6 @@ export default function Header(props: HeaderProps) {
     const navigate = useNavigate();
     const spotlight = useSpotlight();
     const [loading, setLoading] = useState(false);
-    const [openAIApiKey] = useOption<string>('openai', 'apiKey');
     const dispatch = useAppDispatch();
     const intl = useIntl();
 
@@ -165,8 +191,8 @@ export default function Header(props: HeaderProps) {
     }, [navigate]);
 
     const openSettings = useCallback(() => {
-        dispatch(setTab(openAIApiKey ? 'chat' : 'user'));
-    }, [openAIApiKey, dispatch]);
+        dispatch(setTab('ui'));
+    }, [dispatch]);
 
     const signIn = useCallback(() => {
         if ((window as any).AUTH_PROVIDER !== 'local') {
@@ -174,15 +200,15 @@ export default function Header(props: HeaderProps) {
         } else {
             dispatch(openLoginModal());
         }
-    }, [dispatch])
+    }, [dispatch]);
 
-    const signUp = useCallback(() => {
-        if ((window as any).AUTH_PROVIDER !== 'local') {
-            backend.current?.signIn();
-        } else {
-            dispatch(openSignupModal());
-        }
-    }, [dispatch])
+    // const signUp = useCallback(() => {
+    //     if ((window as any).AUTH_PROVIDER !== 'local') {
+    //         backend.current?.signIn();
+    //     } else {
+    //         dispatch(openSignupModal());
+    //     }
+    // }, [dispatch]);
 
     useHotkeys([
         ['c', onNewChat],
@@ -192,36 +218,46 @@ export default function Header(props: HeaderProps) {
         {context.sessionExpired && <Banner onClick={signIn}>
             You have been signed out. Click here to sign back in.
         </Banner>}
-        <HeaderContainer className={context.isHome ? 'shaded' : ''}>
+        <HeaderContainer className={context.isHome ? 'shaded' : 'chat-toolbar'}>
             <Helmet>
                 <title>
                     {props.title ? `${props.title} - ` : ''}
-                    {intl.formatMessage({ defaultMessage: "Chat with GPT - Unofficial ChatGPT app", description: "HTML title tag" })}
+                    {intl.formatMessage({ defaultMessage: "Fery — Ferry AI Assistant", description: "HTML title tag" })}
                 </title>
             </Helmet>
             {!sidebarOpen && <Burger opened={sidebarOpen} onClick={onBurgerClick} aria-label={burgerLabel} transitionDuration={0} />}
-            {context.isHome && <h2>{intl.formatMessage({ defaultMessage: "Chat with GPT", description: "app name" })}</h2>}
             <div className="spacer" />
-            <HeaderButton icon="search" onClick={spotlight.openSpotlight} />
-            <HeaderButton icon="gear" onClick={openSettings} />
-            {backend.current && !props.share && props.canShare && typeof navigator.share !== 'undefined' && <HeaderButton icon="share" onClick={props.onShare}>
-                <FormattedMessage defaultMessage="Share" description="Label for the button used to create a public share URL for a chat log" />
-            </HeaderButton>}
-            {backend.current && !context.authenticated && (
-                <HeaderButton onClick={localStorage.getItem('registered') ? signIn : signUp}>
-                    <FormattedMessage defaultMessage="Sign in <h>to sync</h>"
-                        description="Label for sign in button, which indicates that the purpose of signing in is to sync your data between devices. Less important text inside <h> tags is hidden on small screens."
-                        values={{
-                            h: (chunks: any) => <span className="hide-on-mobile">{chunks}</span>
-                        }} />
-                </HeaderButton>
+            {!context.isHome && (
+                <>
+                    <HeaderButton icon="search" onClick={spotlight.openSpotlight} aria-label={intl.formatMessage({ defaultMessage: 'Search chats' })} />
+                    <HeaderButton icon="gear" onClick={openSettings} aria-label={intl.formatMessage({ defaultMessage: 'Settings' })} />
+                    {/*
+                    {backend.current && !props.share && props.canShare && typeof navigator.share !== 'undefined' && (
+                        <HeaderButton icon="share" onClick={props.onShare}>
+                            <FormattedMessage defaultMessage="Share" description="Label for the button used to create a public share URL for a chat log" />
+                        </HeaderButton>
+                    )}
+                    {backend.current && !context.authenticated && (
+                        <HeaderButton onClick={localStorage.getItem('registered') ? signIn : signUp}>
+                            <FormattedMessage defaultMessage="Sign in <h>to sync</h>"
+                                description="Label for sign in button, which indicates that the purpose of signing in is to sync your data between devices. Less important text inside <h> tags is hidden on small screens."
+                                values={{
+                                    h: (chunks: any) => <span className="hide-on-mobile">{chunks}</span>
+                                }} />
+                        </HeaderButton>
+                    )}
+                    */}
+                    <HeaderButton icon="plus" onClick={onNewChat} loading={loading} emphasis>
+                        <FormattedMessage defaultMessage="New Chat" description="Label for the button used to start a new chat session" />
+                    </HeaderButton>
+                </>
             )}
-            <HeaderButton icon="plus" onClick={onNewChat} loading={loading} variant="light">
-                <FormattedMessage defaultMessage="New Chat" description="Label for the button used to start a new chat session" />
-            </HeaderButton>
         </HeaderContainer>
-    </>), [sidebarOpen, onBurgerClick, props.title, props.share, props.canShare, props.onShare, openSettings, onNewChat, 
-        loading, context.authenticated, context.sessionExpired, context.isHome, context.isShare, spotlight.openSpotlight, signIn, signUp]);
+    </>), [
+        sidebarOpen, onBurgerClick, props.title, openSettings, onNewChat,
+        loading, context.sessionExpired, context.isHome, spotlight.openSpotlight, intl, signIn,
+        // When re-enabling Share / Sign-in in header, restore deps: props.share, props.canShare, props.onShare, context.authenticated, context.isShare, signUp
+    ]);
 
     return header;
 }

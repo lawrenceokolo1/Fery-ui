@@ -10,8 +10,7 @@ import { useModals } from '@mantine/modals';
 import { backend } from '../../core/backend';
 
 const Container = styled.div`
-    margin: calc(1.618rem - 1rem);
-    margin-top: -0.218rem;
+    margin: 0.55rem 0.45rem 0.9rem;
 `;
 
 const Empty = styled.p`
@@ -25,27 +24,30 @@ const ChatList = styled.div``;
 const ChatListItemLink = styled(Link)`
     display: block;
     position: relative;
-    padding: 0.4rem 1rem;
-    margin: 0.218rem 0;
+    padding: 0.55rem 0.8rem;
+    margin: 0.2rem 0;
     line-height: 1.7;
     text-decoration: none;
-    border-radius: 0.25rem;
+    border-radius: 0.7rem;
+    border: 1px solid transparent;
 
     &:hover, &:focus, &:active {
-        background: rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.08);
     }
 
     &.selected {
-        background: #2b3d54;
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.18);
     }
 
     strong {
         display: block;
-        font-weight: 400;
-        font-size: 1rem;
+        font-weight: 500;
+        font-size: 0.92rem;
         line-height: 1.6;
         padding-right: 1rem;
-        color: white;
+        color: rgba(245, 245, 252, 0.95);
     }
 
     p {

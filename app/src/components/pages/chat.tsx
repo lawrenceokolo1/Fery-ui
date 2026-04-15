@@ -2,8 +2,10 @@ import React, { Suspense, useCallback } from 'react';
 import styled from '@emotion/styled';
 import slugify from 'slugify';
 import { useEffect } from 'react';
+import { useIntl } from 'react-intl';
 import { useParams } from 'react-router-dom';
-import { Loader } from '@mantine/core';
+import { Loader, Text } from '@mantine/core';
+import { openModal } from '@mantine/modals';
 
 import { useAppContext } from '../../core/context';
 import { backend } from '../../core/backend';
@@ -38,6 +40,7 @@ const EmptyMessage = styled.div`
 export default function ChatPage(props: any) {
     const { id } = useParams();
     const context = useAppContext();
+    const intl = useIntl();
 
     const [autoScrollWhenOpeningChat] = useOption('auto-scroll', 'auto-scroll-when-opening-chat')
     const [autoScrollWhileGenerating] = useOption('auto-scroll', 'auto-scroll-while-generating');
@@ -83,26 +86,54 @@ export default function ChatPage(props: any) {
 
     const shouldShowChat = id && context.currentChat.chat && !!messagesToDisplay.length;
 
+    const onShareChat = useCallback(async () => {
+        const chat = context.currentChat.chat;
+        if (!chat || !backend.current) {
+            return;
+        }
+        const shareId = await backend.current.shareChat(chat);
+        if (!shareId) {
+            return;
+        }
+        const slug = chat.title ? '/' + slugify(chat.title.toLocaleLowerCase()) : '';
+        const shareUrl = `${window.location.origin}/s/${shareId}${slug}`;
+        const payload = { title: chat.title || undefined, url: shareUrl };
+        if (typeof navigator.share === 'function') {
+            try {
+                await navigator.share(payload);
+                return;
+            } catch {
+                /* user cancelled or share failed — offer clipboard */
+            }
+        }
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            openModal({
+                title: intl.formatMessage({ id: 'ui.shareChatCopiedTitle', defaultMessage: 'Share link copied' }),
+                children: (
+                    <Text size="sm">
+                        {intl.formatMessage({
+                            id: 'ui.shareChatCopiedBody',
+                            defaultMessage: 'The public conversation link is on your clipboard. Paste it to share.',
+                        })}
+                    </Text>
+                ),
+                centered: true,
+            });
+        } catch {
+            window.prompt(
+                intl.formatMessage({ id: 'ui.shareChatCopyPrompt', defaultMessage: 'Copy this share link:' }),
+                shareUrl,
+            );
+        }
+    }, [context.currentChat.chat, intl]);
+
     return <Page id={id || 'landing'}
         headerProps={{
             share: context.isShare,
             canShare: messagesToDisplay.length > 1,
             title: (id && messagesToDisplay.length) ? context.currentChat.chat?.title : null,
-            onShare: async () => {
-                if (context.currentChat.chat) {
-                    const id = await backend.current?.shareChat(context.currentChat.chat);
-                    if (id) {
-                        const slug = context.currentChat.chat.title
-                            ? '/' + slugify(context.currentChat.chat.title.toLocaleLowerCase())
-                            : '';
-                        const url = window.location.origin + '/s/' + id + slug;
-                        navigator.share?.({
-                            title: context.currentChat.chat.title || undefined,
-                            url,
-                        });
-                    }
-                }
-            },
+            onShare: onShareChat,
         }}>
         <Suspense fallback={<Messages id="messages">
             <EmptyMessage>
