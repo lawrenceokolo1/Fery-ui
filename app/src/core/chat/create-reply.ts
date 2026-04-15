@@ -1,5 +1,5 @@
 import EventEmitter from "events";
-import { createChatCompletion, createStreamingChatCompletion } from "./openai";
+import { createStreamingChatCompletion } from "./openai";
 import { PluginContext } from "../plugins/plugin-context";
 import { pluginRunner } from "../plugins/plugin-runner";
 import { Chat, Message, OpenAIMessage, Parameters, getOpenAIMessageFromMessage } from "./types";
@@ -38,11 +38,8 @@ export class ReplyRequest extends EventEmitter {
             return this.chat;
         },
 
-        createChatCompletion: async (messages: OpenAIMessage[], _parameters: Parameters) => {
-            return await createChatCompletion(messages, {
-                ..._parameters,
-                apiKey: this.requestedParameters.apiKey,
-            });
+        createChatCompletion: async (_messages: OpenAIMessage[], _parameters: Parameters) => {
+            return '';
         },
 
         setChatTitle: async (title: string) => {
@@ -58,7 +55,7 @@ export class ReplyRequest extends EventEmitter {
         this.timer = setInterval(() => {
             const sinceLastChunk = Date.now() - this.lastChunkReceivedAt;
             if (sinceLastChunk > 30000 && !this.done) {
-                this.onError('no response from OpenAI in the last 30 seconds');
+                this.onError('no response from Fery in the last 30 seconds');
             }
         }, 2000);
     }
@@ -160,7 +157,7 @@ export class ReplyRequest extends EventEmitter {
         clearInterval(this.timer);
         this.cancelSSE?.();
 
-        this.content += `\n\nI'm sorry, I'm having trouble connecting to OpenAI (${error || 'no response from the API'}). Please make sure you've entered your OpenAI API key correctly and try again.`;
+        this.content += `\n\nI'm sorry, I'm having trouble connecting to Fery (${error || 'no response from the API'}). Please try again.`;
         this.content = this.content.trim();
 
         this.yChat.setMessageContent(this.replyID, this.content);

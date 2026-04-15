@@ -3,13 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { IntlShape, useIntl } from "react-intl";
 import { Backend, User } from "./backend";
 import { ChatManager } from "./";
-import { useAppDispatch } from "../store";
-import { openOpenAIApiKeyPanel } from "../store/settings-ui";
 import { Message, Parameters } from "./chat/types";
 import { useChat, UseChatResult } from "./chat/use-chat";
 import { TTSContextProvider } from "./tts/use-tts";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { isProxySupported } from "./chat/openai";
+import { useLocation, useParams } from "react-router-dom";
 import { audioContext, resetAudioContext } from "./tts/audio-file-player";
 
 export interface Context {
@@ -39,8 +36,6 @@ export function useCreateAppContext(): Context {
     const { id: _id } = useParams();
     const [nextID, setNextID] = useState(uuidv4());
     const id = _id ?? nextID;
-
-    const dispatch = useAppDispatch();
 
     intl = useIntl();
     
@@ -89,11 +84,6 @@ export function useCreateAppContext(): Context {
         // const openaiApiKey = store.getState().apiKeys.openAIApiKey;
         const openaiApiKey = chatManager.options.getOption<string>('openai', 'apiKey');
 
-        if (!openaiApiKey && !isProxySupported()) {
-            dispatch(openOpenAIApiKeyPanel());
-            return false;
-        }
-
         const parameters: Parameters = {
             model: chatManager.options.getOption<string>('parameters', 'model', id),
             temperature: chatManager.options.getOption<number>('parameters', 'temperature', id),
@@ -139,7 +129,7 @@ export function useCreateAppContext(): Context {
         // }
 
         return id;
-    }, [dispatch, id, currentChat.leaf, isShare]);
+    }, [id, currentChat.leaf, isShare, nextID]);
 
     const regenerateMessage = useCallback(async (message: Message) => {
         resetAudioContext();
@@ -150,11 +140,6 @@ export function useCreateAppContext(): Context {
 
         // const openaiApiKey = store.getState().apiKeys.openAIApiKey;
         const openaiApiKey = chatManager.options.getOption<string>('openai', 'apiKey');
-
-        if (!openaiApiKey && !isProxySupported()) {
-            dispatch(openOpenAIApiKeyPanel());
-            return false;
-        }
 
         const parameters: Parameters = {
             model: chatManager.options.getOption<string>('parameters', 'model', id),
@@ -167,7 +152,7 @@ export function useCreateAppContext(): Context {
         });
 
         return true;
-    }, [dispatch, isShare]);
+    }, [id, isShare]);
 
     const editMessage = useCallback(async (message: Message, content: string) => {
         resetAudioContext();
@@ -182,11 +167,6 @@ export function useCreateAppContext(): Context {
 
         // const openaiApiKey = store.getState().apiKeys.openAIApiKey;
         const openaiApiKey = chatManager.options.getOption<string>('openai', 'apiKey');
-
-        if (!openaiApiKey && !isProxySupported()) {
-            dispatch(openOpenAIApiKeyPanel());
-            return false;
-        }
 
         const parameters: Parameters = {
             model: chatManager.options.getOption<string>('parameters', 'model', id),
@@ -217,7 +197,7 @@ export function useCreateAppContext(): Context {
         }
 
         return true;
-    }, [dispatch, id, isShare]);
+    }, [id, isShare]);
 
     const generating = currentChat?.messagesToDisplay?.length > 0
         ? !currentChat.messagesToDisplay[currentChat.messagesToDisplay.length - 1].done

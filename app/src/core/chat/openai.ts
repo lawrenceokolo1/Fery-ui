@@ -1,21 +1,20 @@
 import EventEmitter from "events";
-import { Configuration, OpenAIApi } from "openai";
 import SSE from "../utils/sse";
 import { OpenAIMessage, Parameters } from "./types";
-import { backend } from "../backend";
 
-export const defaultModel = 'gpt-3.5-turbo';
+export const defaultModel = 'claude-haiku';
+
+function feryHeaders(): Record<string, string> {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    const key = import.meta.env.VITE_FERY_API_KEY as string | undefined;
+    if (key) {
+        h["X-API-Key"] = key;
+    }
+    return h;
+}
 
 export function isProxySupported() {
-    return !!backend.current?.services?.includes('openai');
-}
-
-function shouldUseProxy(apiKey: string | undefined | null) {
-    return !apiKey && isProxySupported();
-}
-
-function getEndpoint(proxied = false) {
-    return proxied ? '/chatapi/proxies/openai' : 'https://api.openai.com';
+    return true;
 }
 
 export interface OpenAIResponseChunk {
@@ -31,74 +30,54 @@ export interface OpenAIResponseChunk {
     model?: string;
 }
 
-function parseResponseChunk(buffer: any): OpenAIResponseChunk {
-    const chunk = buffer.toString().replace('data: ', '').trim();
-
-    if (chunk === '[DONE]') {
-        return {
-            done: true,
-        };
-    }
-
-    const parsed = JSON.parse(chunk);
-
-    return {
-        id: parsed.id,
-        done: false,
-        choices: parsed.choices,
-        model: parsed.model,
-    };
-}
-
 export async function createChatCompletion(messages: OpenAIMessage[], parameters: Parameters): Promise<string> {
-    const proxied = shouldUseProxy(parameters.apiKey);
-    const endpoint = getEndpoint(proxied);
-
-    if (!proxied && !parameters.apiKey) {
-        throw new Error('No API key provided');
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMessage) {
+        return '';
     }
 
-    const response = await fetch(endpoint + '/v1/chat/completions', {
+    const response = await fetch('/api/v1/ask', {
         method: "POST",
-        headers: {
-            'Accept': 'application/json, text/plain, */*',
-            'Authorization': !proxied ? `Bearer ${parameters.apiKey}` : '',
-            'Content-Type': 'application/json',
-        },
+        headers: feryHeaders(),
         body: JSON.stringify({
-            "model": parameters.model,
-            "messages": messages,
-            "temperature": parameters.temperature,
+            question: lastUserMessage.content,
+            stream: false,
         }),
     });
 
-    const data = await response.json();
+    if (!response.ok) {
+        const text = await response.text();
+        let msg = text || response.statusText || `HTTP ${response.status}`;
+        try {
+            const err = JSON.parse(text) as { detail?: string };
+            if (err.detail) {
+                msg = err.detail;
+            }
+        } catch {
+            /* body is not JSON */
+        }
+        throw new Error(msg);
+    }
 
-    return data.choices[0].message?.content?.trim() || '';
+    const data = await response.json();
+    return data.answer || '';
 }
 
 export async function createStreamingChatCompletion(messages: OpenAIMessage[], parameters: Parameters) {
     const emitter = new EventEmitter();
 
-    const proxied = shouldUseProxy(parameters.apiKey);
-    const endpoint = getEndpoint(proxied);
-
-    if (!proxied && !parameters.apiKey) {
-        throw new Error('No API key provided');
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMessage) {
+        setTimeout(() => emitter.emit('error', 'No user message found'), 0);
+        return { emitter, cancel: () => {} };
     }
 
-    const eventSource = new SSE(endpoint + '/v1/chat/completions', {
+    const eventSource = new SSE('/api/v1/ask', {
         method: "POST",
-        headers: {
-            'Accept': 'application/json, text/plain, */*',
-            'Authorization': !proxied ? `Bearer ${parameters.apiKey}` : '',
-            'Content-Type': 'application/json',
-        },
+        headers: feryHeaders(),
         payload: JSON.stringify({
-            "model": parameters.model,
-            "messages": messages,
-            "temperature": parameters.temperature,
-            "stream": true,
+            question: lastUserMessage.content,
+            stream: true,
         }),
     }) as SSE;
 
@@ -108,26 +87,31 @@ export async function createStreamingChatCompletion(messages: OpenAIMessage[], p
         if (!contents) {
             let error = event.data;
             try {
-                error = JSON.parse(error).error.message;
+                error = JSON.parse(error).detail || error;
             } catch (e) {}
             emitter.emit('error', error);
         }
     });
 
     eventSource.addEventListener('message', async (event: any) => {
-        if (event.data === '[DONE]') {
-            emitter.emit('done');
-            return;
-        }
-
         try {
-            const chunk = parseResponseChunk(event.data);
-            if (chunk.choices && chunk.choices.length > 0) {
-                contents += chunk.choices[0]?.delta?.content || '';
+            const parsed = JSON.parse(event.data);
+
+            if (parsed.done) {
+                emitter.emit('done', {
+                    sources: parsed.sources || [],
+                    session_id: parsed.session_id,
+                    tool_calls: parsed.tool_calls || [],
+                });
+                return;
+            }
+
+            if (parsed.text) {
+                contents += parsed.text;
                 emitter.emit('data', contents);
             }
         } catch (e) {
-            console.error(e);
+            console.error('Failed to parse SSE chunk:', e);
         }
     });
 
@@ -140,12 +124,5 @@ export async function createStreamingChatCompletion(messages: OpenAIMessage[], p
 }
 
 export const maxTokensByModel = {
-    "gpt-3.5-turbo": 4096,
-    "gpt-4": 8192,
-    "gpt-4-0613": 8192,
-    "gpt-4-32k": 32768,
-    "gpt-4-32k-0613": 32768,
-    "gpt-3.5-turbo-16k": 16384,
-    "gpt-3.5-turbo-0613": 4096,
-    "gpt-3.5-turbo-16k-0613": 16384,
+    "claude-haiku": 4096,
 };
